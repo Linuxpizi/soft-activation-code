@@ -8,7 +8,8 @@ authors = [
     { name = "Flet developer", email = "tangsong0202@gmail.com" }
 ]
 dependencies = [
-  "flet==0.28.3"
+  "flet==0.28.3",
+  "pycryptodome (==3.21.0)",
 ]
 
 [tool.flet]

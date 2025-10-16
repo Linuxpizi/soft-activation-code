@@ -15,10 +15,10 @@ from Crypto.Random import get_random_bytes
 @dataclass
 class Fingerprint:
     device_fingerprint: str = field(default='')
-    expire_timestamp: float = field(default=.0)
+    unit: str = field(default='')
+    period: int = field(default=0)
     gen_timestamp: float = field(default=.0)
-    validity_period: int = field(default=0)
-    period_unit: str = field(default='')
+    expire_timestamp: float = field(default=.0)
     
 class LicenseManager:
     def __init__(self, key: int | str = None):
@@ -46,7 +46,7 @@ class LicenseManager:
         # 返回IV + 加密数据（Base64编码）
         return base64.urlsafe_b64encode(iv + encrypted_data).decode()
     
-    def decrypt_data(self, encrypted_data: str):
+    def decrypt_data(self, encrypted_data: str) -> Fingerprint:
         """使用 AES 解密数据"""
         # 解码 Base64 数据
         decoded_data = base64.urlsafe_b64decode(encrypted_data)
@@ -60,26 +60,25 @@ class LicenseManager:
         
         # 解密数据
         decrypted_data = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-        
-        return decrypted_data.decode()
+        return json.loads(decrypted_data.decode()) 
     
-    def generate_license(self, device_fingerprint: str, validity_period: int, period_unit: str = "month") -> str:
+    def generate_license(self, device_fingerprint: str, unit: str = "month", period: int = 1) -> str:
         """生成许可证"""
         # 计算到期日期
-        if period_unit == "month":
-            expire_timestamp = (datetime.now() + timedelta(days=30 * validity_period)).timestamp()
-        elif period_unit == "year":
-            expire_timestamp = (datetime.now() + timedelta(days=365 * validity_period)).timestamp()
+        if unit == "month":
+            expire_timestamp = (datetime.now() + timedelta(days=30 * period)).timestamp()
+        elif unit == "year":
+            expire_timestamp = (datetime.now() + timedelta(days=365 * period)).timestamp()
         else:
-            raise ValueError("period_unit 必须是 'month' 或 'year'")
+            raise ValueError("unit 必须是 'month' 或 'year'")
         
         # 创建许可证数据
         license_data = Fingerprint(
             device_fingerprint=device_fingerprint,
-            expire_timestamp=expire_timestamp,
+            unit=unit,
+            period=period,
             gen_timestamp=datetime.now().timestamp(),
-            validity_period=validity_period,
-            period_unit=period_unit,
+            expire_timestamp=expire_timestamp,
         )
         
         # 加密许可证数据
@@ -97,18 +96,18 @@ class LicenseManager:
                 return False, "许可证与当前设备不匹配"
             
             # 检查是否过期
-            expiry_date = datetime.fromisoformat(license_data["expiry_date"])
-            if datetime.now() > expiry_date:
-                return False, f"许可证已于 {expiry_date} 过期"
+            expire_timestamp = datetime.fromtimestamp(license_data["expire_timestamp"])
+            if datetime.now().timestamp() > expire_timestamp:
+                return False, f"许可证已于 {expire_timestamp} 过期"
             
             # 计算剩余天数
-            remaining_days = (expiry_date - datetime.now()).days
+            remaining_days = datetime.fromtimestamp(expire_timestamp - datetime.now().timestamp())
             return True, f"许可证有效，剩余 {remaining_days} 天"
             
         except Exception as e:
             return False, f"许可证验证失败: {str(e)}"
     
-    def get_license_info(self, license_key) -> Optional[Fingerprint]:
+    def get_license_info(self, license_key: str) -> Optional[Fingerprint]:
         """获取许可证信息（不验证设备）"""
         try:
             decrypted_data = self.decrypt_data(license_key)
@@ -119,10 +118,10 @@ class LicenseManager:
             
             return Fingerprint(
                 device_fingerprint=license_data["device_fingerprint"],
+                unit=license_data["unit"],
+                period=license_data["period"],
                 gen_timestamp=gen_timestamp,
                 expire_timestamp=expire_timestamp,
-                validity_period=license_data["validity_period"],
-                period_unit=license_data["period_unit"],
             )
         except Exception as e:
             {"error": f"获取许可证信息失败: {str(e)}"}
@@ -194,7 +193,8 @@ class LicenseManager:
 
 
 if __name__ == "__main__":
-    lm = LicenseManager(key=16)
-    lic = lm.generate_license(lm.dev_fingerprint(), 12)
+    lm = LicenseManager(key=24)
+    print(lm.dev_fingerprint())
+    lic = lm.generate_license(lm.dev_fingerprint())
     print(lic)
     print(lm.decrypt_data(lic))
