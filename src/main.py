@@ -108,7 +108,7 @@ def main(page: ft.Page):
             ft.DataRow(
                 cells=[
                     ft.DataCell(ft.Text(lic.device_fingerprint, width=200, overflow=ft.TextOverflow.VISIBLE)),
-                    ft.DataCell(ft.Text(lic.unit)),
+                    ft.DataCell(ft.Text("月" if lic.unit == "month" else "年")),
                     ft.DataCell(ft.Text(lic.period)),
                     ft.DataCell(ft.Text(datetime.fromtimestamp(lic.gen_timestamp))),
                     ft.DataCell(ft.Text(datetime.fromtimestamp(lic.expire_timestamp))),
@@ -117,6 +117,7 @@ def main(page: ft.Page):
                 ],
             ) for lic in infos
         ]
+        page.update()
     
     app_tabs = ft.Tabs(
         expand=True,
