@@ -10,7 +10,7 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
     # 许可证
-    lc = LicenseManager(24)
+    lc = LicenseManager(key="tangsong0202@gmail.com..")
     # 初始化数据库
     db = SQLiteManager()
     db.setup()

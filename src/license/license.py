@@ -6,8 +6,9 @@ import platform
 import socket
 import subprocess
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import Optional
 from dataclasses import dataclass, field, asdict
+
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
@@ -23,8 +24,11 @@ class Fingerprint:
 class LicenseManager:
     def __init__(self, key: int | str = None):
         # 使用提供的密钥或生成新密钥
-        if (key or len(key)) in AES.key_size:
-            self.key: bytes = key.encode() if isinstance(key, str) else get_random_bytes(key)
+        if key:
+            if isinstance(key, str):
+                self.key: bytes = key.encode()
+            else:
+                self.key: bytes = get_random_bytes(key)
         else:
             self.key: bytes = get_random_bytes(32)  # 默认使用 256 位密钥
         
@@ -44,12 +48,12 @@ class LicenseManager:
         encrypted_data = cipher.encrypt(pad(data.encode(), AES.block_size))
         
         # 返回IV + 加密数据（Base64编码）
-        return base64.urlsafe_b64encode(iv + encrypted_data).decode()
+        return base64.b64encode(iv + encrypted_data).decode()
     
     def decrypt_data(self, encrypted_data: str) -> Fingerprint:
         """使用 AES 解密数据"""
         # 解码 Base64 数据
-        decoded_data = base64.urlsafe_b64decode(encrypted_data)
+        decoded_data = base64.b64decode(encrypted_data)
         
         # 提取 IV 和加密数据
         iv = decoded_data[:AES.block_size]
@@ -83,29 +87,6 @@ class LicenseManager:
         
         # 加密许可证数据
         return self.encrypt_data(json.dumps(asdict(license_data)))
-    
-    def validate_license(self, license_key: str, current_device_fingerprint: str) -> Tuple[bool, str]:
-        """验证许可证"""
-        try:
-            # 解密许可证数据
-            decrypted_data = self.decrypt_data(license_key)
-            license_data = json.loads(decrypted_data)
-            
-            # 检查设备指纹是否匹配
-            if license_data["device_fingerprint"] != current_device_fingerprint:
-                return False, "许可证与当前设备不匹配"
-            
-            # 检查是否过期
-            expire_timestamp = datetime.fromtimestamp(license_data["expire_timestamp"])
-            if datetime.now().timestamp() > expire_timestamp:
-                return False, f"许可证已于 {expire_timestamp} 过期"
-            
-            # 计算剩余天数
-            remaining_days = datetime.fromtimestamp(expire_timestamp - datetime.now().timestamp())
-            return True, f"许可证有效，剩余 {remaining_days} 天"
-            
-        except Exception as e:
-            return False, f"许可证验证失败: {str(e)}"
     
     def get_license_info(self, license_key: str) -> Optional[Fingerprint]:
         """获取许可证信息（不验证设备）"""
@@ -193,8 +174,13 @@ class LicenseManager:
 
 
 if __name__ == "__main__":
-    lm = LicenseManager(key=24)
-    print(lm.dev_fingerprint())
-    lic = lm.generate_license(lm.dev_fingerprint())
-    print(lic)
-    print(lm.decrypt_data(lic))
+    lm = LicenseManager(key="tangsong0202@gmail.com..")
+    fingerprint = lm.dev_fingerprint()
+    print("1", fingerprint)
+    
+    lic = lm.generate_license(fingerprint)
+    print("2", lic)
+    print("3", lm.decrypt_data(lic))
+    
+    print("--------------------")
+    print("4", lm.decrypt_data("q9f0CtTDge8ijBxxVYDRUnETcv3ZI+t5VRTGUZEGgrpI4intWwCaLk1aA9DAXyw+fDt9Gt4ERZNl8jbkj6LTPrNmRkxuhS4RUqAmombwFqb/zWzZ5l4FlMtRVgCLxFr6p0e47ZEZm2UodFfsDMBNCuOPZ/uJY00D12IUQrYyJZEnInP7UbpgE1FUMZo7oTxxtPdMVvx7R5244sYLOAhj01Y0Pe+DCkM44Mpwv/2qCs8Uf9BtBOWXXZCZI90KpWCDMod95CG0W9rm7iKFVDcEPIUnA+gaa7E+onZjzuLqKoc="))
